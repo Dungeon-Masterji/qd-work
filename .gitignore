@@ -1,4 +1,6 @@
 .env
+*.log
+ai-logs/
 .venv/
 node_modules/
 __pycache__/
