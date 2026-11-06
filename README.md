@@ -2,6 +2,20 @@
 
 ProcureYard take-home for the ML/AI Engineer Intern role. Start with `BRIEF.md`.
 
+### Dashboard proof
+
+#### Wrong-rider escalation for R021
+
+![R021 wrong-rider escalation](docs/images/ops-r021-wrong-rider.png)
+
+#### Suspicious-message escalation for R020
+
+![R020 suspicious-message escalation](docs/images/ops-r020-suspicious.png)
+
+#### Pending approvals and escalation queue
+
+![Pending approval and escalation items](docs/images/ops-pending-items.png)
+
 ## What is included
 
 - FastAPI message processing service backed by PostgreSQL.
@@ -62,20 +76,6 @@ Verified guardrail and incentive behavior includes:
 - Existing and newly created ops items are visible in the dashboard
 
 The dashboard was also verified with seeded riders, pending escalation cards, conversations, and ordered trace steps.
-
-### Dashboard proof
-
-#### Wrong-rider escalation for R021
-
-![R021 wrong-rider escalation](docs/images/ops-r021-wrong-rider.png)
-
-#### Suspicious-message escalation for R020
-
-![R020 suspicious-message escalation](docs/images/ops-r020-suspicious.png)
-
-#### Pending approvals and escalation queue
-
-![Pending approval and escalation items](docs/images/ops-pending-items.png)
 
 ## Evaluation status
 
