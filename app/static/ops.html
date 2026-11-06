@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payout Ops Desk</title>
+  <style>
+    :root { color-scheme: light; --border:#d8dee8; --muted:#667085; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#f6f7fb; color:#172033; }
+    header { padding:18px 24px; background:#172033; color:white; }
+    header h1 { margin:0; font-size:20px; }
+    main { display:grid; grid-template-columns:minmax(260px,320px) minmax(0,1fr); height:calc(100vh - 63px); }
+    aside { overflow:auto; background:white; border-right:1px solid var(--border); padding:16px; }
+    section { overflow:auto; padding:20px; }
+    h2 { font-size:16px; margin:0 0 12px; }
+    #riders { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px; }
+    .rider { border:1px solid var(--border); border-radius:999px; background:white; padding:7px 10px; cursor:pointer; }
+    .rider.active { background:#172033; color:white; }
+    .pending-card { border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px; background:white; }
+    .pending-card.active { outline:2px solid #3867d6; }
+    .pending-card strong { font-size:16px; }
+    .reason { color:var(--muted); font-size:13px; margin:7px 0; }
+    .actions { display:flex; gap:8px; margin-top:10px; }
+    button { border:0; border-radius:7px; padding:9px 12px; cursor:pointer; font-weight:650; }
+    button.primary { background:#16a34a; color:white; }
+    button.danger { background:#dc2626; color:white; }
+    button.secondary { background:#e9edf5; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .reject-box { display:none; margin-top:10px; }
+    .reject-box.open { display:grid; gap:8px; }
+    textarea { width:100%; min-height:70px; resize:vertical; border:1px solid var(--border); border-radius:7px; padding:8px; }
+    .columns { display:grid; grid-template-columns:minmax(280px,1fr) minmax(280px,1fr); gap:16px; }
+    .panel { background:white; border:1px solid var(--border); border-radius:10px; padding:14px; }
+    .message { border-bottom:1px solid #edf0f5; padding:10px 0; }
+    .message:last-child { border-bottom:0; }
+    .rider-text { white-space:pre-wrap; }
+    .agent-text { margin-top:7px; color:#2457a7; white-space:pre-wrap; }
+    .trace-step { border:1px solid var(--border); border-radius:8px; margin-bottom:8px; overflow:hidden; }
+    .step-head { display:flex; gap:8px; align-items:center; padding:10px; }
+    .badge { font-size:11px; border-radius:999px; padding:3px 7px; text-transform:uppercase; background:#e9edf5; }
+    .badge.message_in { background:#dbeafe; }
+    .badge.tool_call { background:#ede9fe; }
+    .badge.decision { background:#d1fae5; }
+    .badge.reply { background:#fef3c7; }
+    .badge.error { background:#fee2e2; color:#991b1b; }
+    details { border-top:1px solid #edf0f5; padding:7px 10px; }
+    pre { max-height:220px; overflow:auto; white-space:pre-wrap; word-break:break-word; margin:6px 0 0; }
+    #toast { position:fixed; right:18px; bottom:18px; max-width:360px; display:none; background:#991b1b; color:white; border-radius:8px; padding:12px 14px; box-shadow:0 8px 30px #0003; }
+    #toast.show { display:block; }
+    .loading, .empty { color:var(--muted); padding:12px 0; }
+    @media (max-width:800px) {
+      main { display:block; height:auto; }
+      aside { border-right:0; border-bottom:1px solid var(--border); max-height:none; }
+      section { padding:12px; }
+      .columns { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header><h1>Payout Ops Desk</h1></header>
+  <main>
+    <aside>
+      <h2>Riders</h2>
+      <div id="riders" class="loading">Loading riders...</div>
+      <h2>Pending</h2>
+      <div id="pending" class="loading">Loading pending items...</div>
+    </aside>
+    <section>
+      <div class="columns">
+        <div class="panel">
+          <h2>Conversation</h2>
+          <div id="conversation" class="empty">Select a rider.</div>
+        </div>
+        <div class="panel">
+          <h2>Trace</h2>
+          <div id="trace" class="empty">Select a rider.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="toast" role="alert"></div>
+  <script>
+    let selectedRider = null;
+    let pendingItems = [];
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 5000);
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, options);
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.detail || `Request failed (${response.status})`);
+      return body;
+    }
+
+    async function loadRiders() {
+      const node = document.getElementById("riders");
+      node.textContent = "Loading riders...";
+      try {
+        const riders = await api("/ops/riders");
+        node.innerHTML = "";
+        if (!riders.length) {
+          node.className = "empty";
+          node.textContent = "No riders yet.";
+          return;
+        }
+        node.className = "";
+        for (const rider of riders) {
+          const button = document.createElement("button");
+          button.className = "rider" + (rider === selectedRider ? " active" : "");
+          button.textContent = rider;
+          button.onclick = () => selectRider(rider);
+          node.appendChild(button);
+        }
+      } catch (error) { showToast(error.message); node.textContent = "Could not load riders."; }
+    }
+
+    async function loadPending(rider = null) {
+      const node = document.getElementById("pending");
+      node.textContent = "Loading pending items...";
+      try {
+        pendingItems = await api("/ops/pending");
+        node.innerHTML = "";
+        const visibleItems = rider
+          ? pendingItems.filter(item => item.rider_id === rider)
+          : pendingItems;
+        if (!visibleItems.length) {
+          node.className = "empty";
+          node.textContent = rider
+            ? `No pending items for ${rider}.`
+            : "No pending items.";
+          return;
+        }
+        node.className = "";
+        for (const item of visibleItems) node.appendChild(pendingCard(item));
+      } catch (error) { showToast(error.message); node.textContent = "Could not load pending items."; }
+    }
+
+    function pendingCard(item) {
+      const card = document.createElement("div");
+      card.className = "pending-card" + (item.rider_id === selectedRider ? " active" : "");
+      card.dataset.id = item.id;
+      const amount = item.amount == null ? item.type : `₹${Number(item.amount).toLocaleString("en-IN")}`;
+      card.innerHTML = `<strong>${amount}</strong><div>${escapeHtml(item.rider_id)}</div>
+        <div class="reason">${escapeHtml(item.reason)}</div>
+        <div class="actions">
+          <button class="primary approve">Approve</button>
+          <button class="danger reject">Reject</button>
+        </div>
+        <div class="reject-box">
+          <textarea placeholder="Optional rejection note"></textarea>
+          <button class="danger confirm-reject">Confirm reject</button>
+        </div>`;
+      card.querySelector(".approve").onclick = () => act(item, "approve", card.queryState);
+      card.querySelector(".reject").onclick = () => card.querySelector(".reject-box").classList.toggle("open");
+      card.querySelector(".confirm-reject").onclick = () => act(item, "reject", card.querySelector("textarea").value);
+      card.onclick = event => {
+        if (!event.target.closest("button")) selectRider(item.rider_id, false);
+      };
+      return card;
+    }
+
+    async function act(item, action, note) {
+      const cards = [...document.querySelectorAll(".pending-card")].filter(card => card.dataset.id === item.id);
+      const buttons = cards.flatMap(card => [...card.querySelectorAll("button")]);
+      buttons.forEach(button => button.disabled = true);
+      try {
+        await api(`/ops/${encodeURIComponent(item.id)}/${action}`, action === "reject" ? {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({note: note || null})
+        } : {method:"POST"});
+        await Promise.all([loadPending(), loadRiders()]);
+        if (selectedRider === item.rider_id) await selectRider(item.rider_id, false);
+      } catch (error) {
+        showToast(`${action[0].toUpperCase() + action.slice(1)} failed: ${error.message}`);
+        buttons.forEach(button => button.disabled = false);
+      }
+    }
+
+    async function selectRider(rider, refreshRiders = false) {
+      selectedRider = rider;
+      document.querySelectorAll(".rider").forEach(button => button.classList.toggle("active", button.textContent === rider));
+      document.querySelectorAll(".pending-card").forEach(card => card.classList.toggle("active", pendingItems.find(item => item.id === card.dataset.id)?.rider_id === rider));
+      await Promise.all([
+        loadConversation(rider),
+        loadTrace(rider),
+        loadPending(rider),
+      ]);
+      if (refreshRiders) await loadRiders();
+    }
+
+    async function loadConversation(rider) {
+      const node = document.getElementById("conversation");
+      node.className = "loading";
+      node.textContent = "Loading conversation...";
+      try {
+        const messages = await api(`/ops/conversations/${encodeURIComponent(rider)}`);
+        node.className = messages.length ? "" : "empty";
+        if (!messages.length) { node.textContent = "No conversation messages."; return; }
+        node.innerHTML = messages.map(message => `<div class="message">
+          <div><small>${escapeHtml(message.received_at || "")}</small></div>
+          <div class="rider-text">${escapeHtml(message.text)}</div>
+          ${message.reply ? `<div class="agent-text">${escapeHtml(message.reply)}</div>` : ""}
+        </div>`).join("");
+      } catch (error) { showToast(error.message); node.textContent = "Could not load conversation."; }
+    }
+
+    async function loadTrace(rider) {
+      const node = document.getElementById("trace");
+      node.className = "loading";
+      node.textContent = "Loading trace...";
+      try {
+        const steps = await api(`/trace/${encodeURIComponent(rider)}`);
+        node.className = steps.length ? "" : "empty";
+        if (!steps.length) { node.textContent = "No trace steps."; return; }
+        node.innerHTML = steps.map((step, index) => `<div class="trace-step">
+          <div class="step-head">
+            <span class="badge ${escapeHtml(step.type)}">${escapeHtml(step.type)}</span>
+            <strong>${escapeHtml(step.name)}</strong>
+            <small>${escapeHtml(step.at)}</small>
+          </div>
+          <details><summary>Input</summary><pre>${escapeHtml(JSON.stringify(step.input, null, 2))}</pre></details>
+          <details><summary>Output</summary><pre>${escapeHtml(JSON.stringify(step.output, null, 2))}</pre></details>
+        </div>`).join("");
+      } catch (error) { showToast(error.message); node.textContent = "Could not load trace."; }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+      })[char]);
+    }
+
+    loadRiders();
+    loadPending();
+  </script>
+</body>
+</html>

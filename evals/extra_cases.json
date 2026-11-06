@@ -1,0 +1,40 @@
+[
+  {
+    "scenario": "single day close to the auto-pay boundary",
+    "rider_id": "R040",
+    "turns": [
+      {
+        "from": "rider",
+        "message_id": "wamid.EXTRA.R040",
+        "text": "19 ko mera payout kam aaya hai, check karo",
+        "received_at": "2026-09-23T11:00:00+05:30"
+      }
+    ],
+    "expected": {
+      "payout": 192,
+      "approval": 0,
+      "escalation": "no",
+      "reply_mentions": ["192"]
+    }
+  },
+  {
+    "scenario": "two separate findings one dispute",
+    "rider_id": "R027",
+    "turns": [
+      {
+        "from": "rider",
+        "message_id": "wamid.EXTRA.R027",
+        "text": "20 ko surge nahi mila aur 21 ko penalty do baar kata",
+        "received_at": "2026-09-23T10:30:00+05:30"
+      }
+    ],
+    "expected": {
+      "one_of": [
+        {"payout": 15, "approval": 10},
+        {"payout": 10, "approval": 15}
+      ],
+      "escalation": "no",
+      "reply_mentions": ["15", "10"]
+    }
+  }
+]

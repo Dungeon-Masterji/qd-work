@@ -1,6 +1,8 @@
 .env
 *.log
 ai-logs/
+!ai-logs/
+!ai-logs/GitHub Copilot Chat.log
 .venv/
 node_modules/
 __pycache__/

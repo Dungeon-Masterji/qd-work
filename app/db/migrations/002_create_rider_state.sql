@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS rider_state (
+    rider_id TEXT PRIMARY KEY,
+    state JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
