@@ -1,6 +1,8 @@
 # Rider Payout Dispute Desk
 
-ProcureYard take-home for the ML/AI Engineer Intern role. Start with `BRIEF.md`.
+An LLM agent that resolves rider payout disputes sent over WhatsApp. It reads each message, reconciles the rider's trips against the payment ledger, pays small amounts automatically, sends larger ones for human approval, and records every decision as a trace.
+
+> **About this repo:** a take-home assignment for ProcureYard's ML/AI Engineer Intern role, made public after the role was filled. ProcureYard wrote the assignment materials: `BRIEF.md`, `SUBMISSION.md`, the `payswift/` sandbox and the sample data in `data/`. Everything else (the service in `app/`, tests, evals, scripts, Docker setup and dashboard) is my own work.
 
 ### Dashboard proof
 
